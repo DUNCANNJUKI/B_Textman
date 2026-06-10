@@ -17,7 +17,8 @@ export default function Analytics() {
 
   useEffect(() => {
     const load = async () => {
-      const q = admin ? supabase.from("messages").select("status,created_at") : supabase.from("messages").select("status,created_at").eq("client_id", clientId ?? "");
+      if (!admin && !clientId) return;
+      const q = admin ? supabase.from("messages").select("status,created_at") : supabase.from("messages").select("status,created_at").eq("client_id", clientId as string);
       const { data } = await q.gte("created_at", new Date(Date.now() - 30 * 86400_000).toISOString()).limit(5000);
       const days = new Map<string, number>();
       for (let i = 29; i >= 0; i--) {

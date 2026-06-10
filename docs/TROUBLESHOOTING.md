@@ -47,10 +47,6 @@ npm install
 # For yarn
 rm -rf node_modules yarn.lock
 yarn install
-
-# For bun
-rm -rf node_modules bun.lockb
-bun install
 ```
 
 ### Build Issues

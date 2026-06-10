@@ -64,28 +64,10 @@ export default function Devices() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div><h1 className="text-2xl font-bold tracking-tight">Devices</h1><p className="text-sm text-muted-foreground">Android gateway phones</p></div>
-        <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setCreatedToken(null); }}>
-          <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-1" />Register device</Button></DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>{createdToken ? "Device token" : "Register a new device"}</DialogTitle></DialogHeader>
-            {createdToken ? (
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">Paste this token into the Android gateway app. It will not be shown again in this dialog.</p>
-                <div className="flex gap-2">
-                  <Input readOnly value={createdToken} className="font-mono text-xs" />
-                  <Button variant="outline" size="icon" onClick={() => { navigator.clipboard.writeText(createdToken); toast.success("Copied"); }}><Copy className="h-4 w-4" /></Button>
-                </div>
-                <DialogFooter><Button onClick={() => { setOpen(false); setCreatedToken(null); }}>Done</Button></DialogFooter>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="space-y-1"><Label>Device name</Label><Input value={name} onChange={e => setName(e.target.value)} placeholder="Office gateway 1" /></div>
-                <div className="space-y-1"><Label>Phone number</Label><Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+254700000000" /></div>
-                <DialogFooter><Button onClick={create}>Create</Button></DialogFooter>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
+        <div>
+          {/* Device registration is handled via API keys/device-register function — disable manual add */}
+          <Button disabled title="Devices are added via API keys">Register device</Button>
+        </div>
       </div>
 
       <Card className="p-4">

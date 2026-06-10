@@ -33,6 +33,7 @@ export default function Messages() {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(50);
   const [totalCount, setTotalCount] = useState(0);
+  const [showMessages, setShowMessages] = useState<boolean>(false);
 
   const applyMessageFilters = (q: any) => {
     let query = q;
@@ -67,6 +68,8 @@ export default function Messages() {
 
   useEffect(() => { loadMeta(); }, [clientId, admin]);
   useEffect(() => {
+    // Only load messages and subscribe when the user has enabled message viewing
+    if (!showMessages) return;
     load();
     const ch = supabase.channel("msgs-feed").on("postgres_changes", { event: "*", schema: "public", table: "messages" }, load).subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -74,6 +77,10 @@ export default function Messages() {
   }, [clientId, admin, status, deviceId, clientFilter, from, to, page, pageSize]);
 
   useEffect(() => { setPage(0); }, [status, deviceId, clientFilter, from, to, search]);
+
+  useEffect(() => {
+    try { setShowMessages(localStorage.getItem("showMessages") === "true"); } catch { setShowMessages(false); }
+  }, []);
 
   const send = async () => {
     if (!recipient.trim() || !msg.trim()) return toast.error("Recipient and message required");
@@ -162,7 +169,14 @@ export default function Messages() {
         </div>
       </div>
 
-      <Card className="p-4 space-y-3">
+      {!showMessages ? (
+        <Card className="p-4">
+          <h2 className="text-sm font-semibold">Messages are hidden</h2>
+          <p className="text-sm text-muted-foreground">The messages list is disabled by default. Enable it under Settings → UI options.</p>
+          <div className="mt-3"><Button asChild><a href="/settings">Open Settings</a></Button></div>
+        </Card>
+      ) : (
+        <Card className="p-4 space-y-3">
         <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
           <div className="col-span-2 md:col-span-2 flex items-center gap-2">
             <Search className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -236,7 +250,8 @@ export default function Messages() {
           </Table>
         </div>
         <p className="text-xs text-muted-foreground">Exports use the same server-side filters, search term, and current page as the list.</p>
-      </Card>
+        </Card>
+      )}
     </div>
   );
 }

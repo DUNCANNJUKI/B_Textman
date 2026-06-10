@@ -5,6 +5,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ShieldCheck, Database, Download } from "lucide-react";
@@ -17,6 +19,9 @@ export default function Settings() {
   const [loading, setLoading] = useState(false);
   const [hasSuperAdmin, setHasSuperAdmin] = useState<boolean | null>(null);
   const [claiming, setClaiming] = useState(false);
+  const [showMessages, setShowMessages] = useState<boolean>(() => {
+    try { return localStorage.getItem("showMessages") === "true"; } catch { return false; }
+  });
 
   useEffect(() => {
     if (!user) return;
@@ -83,6 +88,25 @@ export default function Settings() {
         ) : (
           <p className="text-sm text-muted-foreground">Checking…</p>
         )}
+      </Card>
+
+      <Card className="p-5 space-y-3">
+        <div className="flex items-center gap-2">
+          <Download className="h-5 w-5 text-primary" />
+          <h2 className="font-semibold">UI options</h2>
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <Label className="text-sm">Show messages</Label>
+            <p className="text-xs text-muted-foreground">Hide the messages list by default. Enable to view messages under the Messages page.</p>
+          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Switch checked={showMessages} onCheckedChange={(v) => { setShowMessages(!!v); try { localStorage.setItem("showMessages", !!v ? "true" : "false"); } catch {} }} />
+            </TooltipTrigger>
+            <TooltipContent side="left">Toggle messages visibility</TooltipContent>
+          </Tooltip>
+        </div>
       </Card>
 
       {isAdmin(roles) && (

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, isAdmin } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,17 +24,25 @@ export default function Devices() {
   const [createdToken, setCreatedToken] = useState<string | null>(null);
 
   const load = async () => {
-    const q = admin ? supabase.from("devices").select("*") : supabase.from("devices").select("*").eq("client_id", clientId ?? "");
+    if (!admin && !clientId) {
+      setDevices([]);
+      return;
+    }
+    const base = supabase.from("devices").select("*");
+    const q = admin ? base : base.eq("client_id", clientId as string);
     const { data } = await q.order("created_at", { ascending: false });
     setDevices(data ?? []);
   };
 
   useEffect(() => {
     load();
-    const ch = supabase.channel("devices-feed")
-      .on("postgres_changes", { event: "*", schema: "public", table: "devices" }, load)
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    if (admin || clientId) {
+      const ch = supabase.channel("devices-feed")
+        .on("postgres_changes", { event: "*", schema: "public", table: "devices" }, load)
+        .subscribe();
+      return () => { supabase.removeChannel(ch); };
+    }
+    return;
   }, [clientId, admin]);
 
   const create = async () => {

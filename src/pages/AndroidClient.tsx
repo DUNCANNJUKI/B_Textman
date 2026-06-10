@@ -14,68 +14,7 @@ import { formatDistanceToNow } from "date-fns";
 const SUPABASE_URL = "https://rtgcrclgmvcmrjpvtpwm.supabase.co";
 const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0Z2NyY2xnbXZjbXJqcHZ0cHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ4NTU0NTEsImV4cCI6MjA3MDQzMTQ1MX0.JR45nTPTScLaObpXQM-VzQ50ODRJTzakrvPOA3HldCM";
 
-const ENDPOINTS = {
-  register: `${SUPABASE_URL}/functions/v1/device-register`,
-  heartbeat: `${SUPABASE_URL}/functions/v1/device-heartbeat`,
-  statusUpdate: `${SUPABASE_URL}/functions/v1/device-status-update`,
-  realtime: `${SUPABASE_URL}/realtime/v1/websocket`,
-};
 
-const STEPS = [
-  { id: 1, title: "Create API key", icon: KeyRound },
-  { id: 2, title: "Register device", icon: Radio },
-  { id: 3, title: "QR / snippet", icon: Smartphone },
-  { id: 4, title: "Heartbeat & realtime", icon: Activity },
-  { id: 5, title: "Send & report", icon: Send },
-];
-
-export default function AndroidClient() {
-  const { clientId } = useAuth();
-  const [step, setStep] = useState(1);
-  const [name, setName] = useState("Samsung-A12-Nairobi-1");
-  const [phone, setPhone] = useState("+254700000000");
-  const [hasKey, setHasKey] = useState(false);
-  const [devices, setDevices] = useState<any[]>([]);
-  const [selectedToken, setSelectedToken] = useState("");
-  const [qrCode, setQrCode] = useState("");
-  const [validating, setValidating] = useState(false);
-  const [validationResult, setValidationResult] = useState<any | null>(null);
-  const [recentMessages, setRecentMessages] = useState<any[]>([]);
-  const [loadingMessages, setLoadingMessages] = useState(false);
-  const [autoPoll, setAutoPoll] = useState(true);
-  const [pollInterval, setPollInterval] = useState(10);
-  const [realtimeStatus, setRealtimeStatus] = useState<"connecting" | "live" | "fallback">("connecting");
-  const [reconnectAttempt, setReconnectAttempt] = useState(0);
-
-  // ---- De-dup + ordering ----
-  // Status progression rank: terminal states (delivered/failed) cannot be overwritten
-  // by a stale "queued"/"processing"/"sent" update arriving out of order.
-  const STATUS_RANK: Record<string, number> = {
-    queued: 1, processing: 2, sent: 3, delivered: 4, failed: 4,
-  };
-  // Tracks the highest-rank state we've already applied per message id, so realtime
-  // and polled updates can't introduce duplicates or regress a row.
-  const seenRef = useRef<Map<string, { rank: number; updated_at: string }>>(new Map());
-
-  const shouldApply = (row: any) => {
-    if (!row?.id) return false;
-    const incomingRank = STATUS_RANK[row.status] ?? 0;
-    const incomingTs = row.updated_at || row.delivered_at || row.sent_at || row.failed_at || row.created_at || "";
-    const prev = seenRef.current.get(row.id);
-    if (!prev) return true;
-    if (incomingRank < prev.rank) return false;                       // status regressed → drop
-    if (incomingRank === prev.rank && incomingTs <= prev.updated_at) return false; // duplicate / older
-    return true;
-  };
-
-  const mergeRows = useCallback((incoming: any[]) => {
-    setRecentMessages((prev) => {
-      const map = new Map<string, any>(prev.map((m) => [m.id, m]));
-      for (const row of incoming) {
-        if (!shouldApply(row)) continue;
-        map.set(row.id, { ...(map.get(row.id) ?? {}), ...row });
-        seenRef.current.set(row.id, {
-          rank: STATUS_RANK[row.status] ?? 0,
           updated_at: row.updated_at || row.delivered_at || row.sent_at || row.failed_at || row.created_at || "",
         });
       }

@@ -65,8 +65,15 @@ export default function Devices() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div><h1 className="text-2xl font-bold tracking-tight">Devices</h1><p className="text-sm text-muted-foreground">Android gateway phones</p></div>
         <div>
-          {/* Device registration is handled via API keys/device-register function — disable manual add */}
-          <Button disabled title="Devices are added via API keys">Register device</Button>
+          {/* Device registration is handled via API keys/device-register function — provide guidance */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button disabled title="Devices are added via API keys">Register device</Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">
+              Devices are registered via API keys. See <a href="/api-docs" className="underline">API docs</a> or <a href="/api-keys" className="underline">API keys</a> to create a key.
+            </TooltipContent>
+          </Tooltip>
         </div>
       </div>
 

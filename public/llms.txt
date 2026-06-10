@@ -1,0 +1,10 @@
+# B-TEXTMAN
+
+> B-TEXTMAN is a cloud SMS gateway that turns Android phones with real SIM cards into a programmable REST API with realtime delivery reports.
+
+B-TEXTMAN lets developers and businesses send SMS messages through Android devices they own, instead of paying per-message rates from cloud SMS providers. Features include multi-device routing, API-key authentication, live analytics, Unicode and multipart support, webhook delivery reports, and reliable retry logic.
+
+## Pages
+
+- [Home](/): Product overview, features, and getting-started links.
+- [Sign in](/auth): Sign in or create a B-TEXTMAN account.

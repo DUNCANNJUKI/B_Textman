@@ -1,0 +1,1 @@
+UPDATE public.messages SET processing_at = now() - interval '5 minutes' WHERE status='processing' AND client_id='0023b0de-4b5c-4d5d-832f-0156e5c1f8ca';

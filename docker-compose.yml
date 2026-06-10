@@ -1,0 +1,59 @@
+# Docker Compose for Local Development
+# Run with: docker-compose up -d
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database (if not using Supabase)
+  postgres:
+    image: postgres:15-alpine
+    container_name: bspot-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bspot_network
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - bspot-network
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: bspot-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - bspot-network
+
+  # Development server
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: bspot-app
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - VITE_DEV_MODE=true
+    depends_on:
+      - postgres
+    networks:
+      - bspot-network
+
+volumes:
+  postgres_data:
+
+networks:
+  bspot-network:
+    driver: bridge

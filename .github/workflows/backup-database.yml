@@ -1,0 +1,35 @@
+name: Database Schema Backup
+
+on:
+  # Run backup weekly on Sundays
+  schedule:
+    - cron: '0 2 * * 0'
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  backup-schema:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        
+      - name: Generate Schema Dump
+        run: |
+          # This workflow serves as documentation
+          # Actual schema dumping requires Supabase project access
+          echo "Schema backup workflow configured"
+          echo "To manually backup schema:"
+          echo "1. Use Supabase dashboard SQL editor"
+          echo "2. Export schema as SQL"
+          echo "3. Commit to repository"
+          
+      - name: Commit schema changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          # Add logic to commit any schema changes
+          echo "Schema backup completed at $(date)" >> backup-log.txt

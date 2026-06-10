@@ -1,0 +1,42 @@
+name: Deploy to Cloudflare Pages
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            npm install -g pnpm
+            pnpm install
+          else
+            npm ci
+          fi
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Wrangler
+        run: npm i -g @cloudflare/wrangler
+
+      - name: Publish to Cloudflare Pages
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_PAGES_PROJECT: ${{ secrets.CF_PAGES_PROJECT }}
+        run: |
+          if [ -z "$CF_API_TOKEN" ] || [ -z "$CF_PAGES_PROJECT" ]; then
+            echo "CF_API_TOKEN or CF_PAGES_PROJECT not set; skip Pages publish"; exit 1
+          fi
+          wrangler pages publish dist --project-name "$CF_PAGES_PROJECT" --branch main --commit-hash $GITHUB_SHA

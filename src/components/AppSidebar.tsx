@@ -91,12 +91,19 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel>Mobile</SidebarGroupLabel>
           <SidebarGroupContent>
-            <div className="px-2 py-2">
-              <a href="/android/app-latest.apk" download className="flex items-center gap-3 text-sm text-foreground hover:underline">
-                <Smartphone className="h-4 w-4" />
-                {!collapsed && <span>Download Android App</span>}
-              </a>
-            </div>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Download Android APK"
+                >
+                  <a href="/android/app-latest.apk" download className="flex items-center gap-3">
+                    <Smartphone className="h-4 w-4" />
+                    {!collapsed && <span>Download Android App</span>}
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>

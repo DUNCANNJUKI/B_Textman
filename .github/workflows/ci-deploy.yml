@@ -89,6 +89,17 @@ jobs:
           publish_dir: ./dist
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Deploy to Cloudflare Pages
+        if: ${{ secrets.CF_API_TOKEN != '' && secrets.CF_PAGES_PROJECT != '' }}
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_PAGES_PROJECT: ${{ secrets.CF_PAGES_PROJECT }}
+        run: |
+          echo "Installing Wrangler..."
+          npm install -g @cloudflare/wrangler
+          echo "Publishing to Cloudflare Pages project: $CF_PAGES_PROJECT"
+          npx @cloudflare/wrangler pages publish dist --project-name "$CF_PAGES_PROJECT" --branch main --commit-hash "${GITHUB_SHA}"
+
       # Optional: push Docker image to registry (requires DOCKERHUB_USERNAME/DOCKERHUB_TOKEN)
       - name: Build and push Docker image (optional)
         if: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}

@@ -40,6 +40,8 @@ jobs:
           if [ -z "$CF_API_TOKEN" ] || [ -z "$CF_PAGES_PROJECT" ]; then
             echo "CF_API_TOKEN or CF_PAGES_PROJECT not set; skip Pages publish"; exit 1
           fi
+          echo "wrangler whoami output (may help debug token/account):"
+          wrangler whoami || true
           if ! wrangler pages publish dist --project-name "$CF_PAGES_PROJECT" --branch main --commit-hash $GITHUB_SHA; then
             echo "wrangler pages publish failed — printing Wrangler logs for debugging"
             for d in "$HOME/.config/.wrangler" "/root/.config/.wrangler" "/opt/buildhome/.config/.wrangler"; do

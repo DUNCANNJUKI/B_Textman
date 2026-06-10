@@ -36,7 +36,21 @@ jobs:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CF_PAGES_PROJECT: ${{ secrets.CF_PAGES_PROJECT }}
         run: |
+          set -euo pipefail
           if [ -z "$CF_API_TOKEN" ] || [ -z "$CF_PAGES_PROJECT" ]; then
             echo "CF_API_TOKEN or CF_PAGES_PROJECT not set; skip Pages publish"; exit 1
           fi
-          wrangler pages publish dist --project-name "$CF_PAGES_PROJECT" --branch main --commit-hash $GITHUB_SHA
+          if ! wrangler pages publish dist --project-name "$CF_PAGES_PROJECT" --branch main --commit-hash $GITHUB_SHA; then
+            echo "wrangler pages publish failed — printing Wrangler logs for debugging"
+            for d in "$HOME/.config/.wrangler" "/root/.config/.wrangler" "/opt/buildhome/.config/.wrangler"; do
+              if [ -d "$d/logs" ]; then
+                echo "--- Logs in $d/logs ---"
+                ls -la "$d/logs" || true
+                for f in "$d/logs"/*.log; do
+                  echo "--- $f ---"
+                  sed -n '1,400p' "$f" || true
+                done
+              fi
+            done
+            exit 1
+          fi

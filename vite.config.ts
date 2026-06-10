@@ -6,6 +6,14 @@ import path from "path";
 // https://vitejs.dev/config/
 export default defineConfig(async ({ mode, command }) => {
   const plugins = [react()];
+  // Dynamically import Cloudflare plugin (ESM-only) to avoid require/interop issues
+  try {
+    const cf = await import('@cloudflare/vite-plugin');
+    const cloudflare = (cf as any).cloudflare ?? (cf as any).default?.cloudflare;
+    if (cloudflare) plugins.push(cloudflare());
+  } catch (e) {
+    console.warn('Cloudflare Vite plugin not available or failed to load:', e);
+  }
   
   // Only load lovable-tagger in dev server, not during builds
   if (mode === 'development' && command === 'serve') {

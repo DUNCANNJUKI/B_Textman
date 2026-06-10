@@ -29,6 +29,8 @@ const STEPS = [
   { id: 5, title: "Send & report", icon: Send },
 ];
 
+type MessageRow = { id?: string; status?: string; updated_at?: string; delivered_at?: string; sent_at?: string; failed_at?: string; created_at?: string };
+
 export default function AndroidClient() {
   const { clientId } = useAuth();
   const [step, setStep] = useState(1);
@@ -53,18 +55,18 @@ export default function AndroidClient() {
   };
   const seenRef = useRef<Map<string, { rank: number; updated_at: string }>>(new Map());
 
-  const shouldApply = (row: any) => {
+  const shouldApply = (row: MessageRow) => {
     if (!row?.id) return false;
-    const incomingRank = STATUS_RANK[row.status] ?? 0;
+    const incomingRank = STATUS_RANK[row.status ?? ""] ?? 0;
     const incomingTs = row.updated_at || row.delivered_at || row.sent_at || row.failed_at || row.created_at || "";
-    const prev = seenRef.current.get(row.id);
+    const prev = seenRef.current.get(row.id as string);
     if (!prev) return true;
     if (incomingRank < prev.rank) return false;
     if (incomingRank === prev.rank && incomingTs <= prev.updated_at) return false;
     return true;
   };
 
-  const mergeRows = useCallback((incoming: any[]) => {
+  const mergeRows = useCallback((incoming: MessageRow[]) => {
     setRecentMessages((prev) => {
       const map = new Map<string, any>(prev.map((m) => [m.id, m]));
       for (const row of incoming) {

@@ -9,8 +9,11 @@ const COLORS = ["hsl(var(--primary))", "hsl(var(--success))", "hsl(var(--destruc
 export default function Analytics() {
   const { clientId, roles } = useAuth();
   const admin = isAdmin(roles);
-  const [byDay, setByDay] = useState<any[]>([]);
-  const [byStatus, setByStatus] = useState<any[]>([]);
+  type DayCount = { day: string; count: number };
+  type StatusCount = { name: string; value: number };
+
+  const [byDay, setByDay] = useState<DayCount[]>([]);
+  const [byStatus, setByStatus] = useState<StatusCount[]>([]);
 
   useEffect(() => {
     const load = async () => {
@@ -22,10 +25,10 @@ export default function Analytics() {
         days.set(d.toISOString().slice(5, 10), 0);
       }
       const statusCount: Record<string, number> = {};
-      (data ?? []).forEach((m: any) => {
-        const k = new Date(m.created_at).toISOString().slice(5, 10);
+      (data ?? []).forEach((m: { created_at?: string; status?: string }) => {
+        const k = new Date(m.created_at ?? "").toISOString().slice(5, 10);
         days.set(k, (days.get(k) ?? 0) + 1);
-        statusCount[m.status] = (statusCount[m.status] ?? 0) + 1;
+        statusCount[m.status ?? "unknown"] = (statusCount[m.status ?? "unknown"] ?? 0) + 1;
       });
       setByDay(Array.from(days.entries()).map(([day, count]) => ({ day, count })));
       setByStatus(Object.entries(statusCount).map(([name, value]) => ({ name, value })));

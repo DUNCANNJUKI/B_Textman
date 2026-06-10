@@ -30,8 +30,8 @@ export default function ResetPassword() {
       if (error) throw error;
       toast.success("Password updated");
       navigate("/dashboard", { replace: true });
-    } catch (err: any) {
-      toast.error(err.message ?? "Could not update password");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : String(err ?? "Could not update password"));
     } finally { setLoading(false); }
   };
 

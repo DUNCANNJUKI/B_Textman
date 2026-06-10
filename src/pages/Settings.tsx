@@ -38,7 +38,7 @@ export default function Settings() {
       await supabase.from("profiles").upsert({ user_id: user.id, display_name: displayName });
       if (clientId) await supabase.from("clients").update({ name: company }).eq("id", clientId);
       toast.success("Saved");
-    } catch (e: any) { toast.error(e.message); } finally { setLoading(false); }
+    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : String(e)); } finally { setLoading(false); }
   };
 
   const claimSuperAdmin = async () => {
@@ -49,7 +49,7 @@ export default function Settings() {
       toast.success("You are now super admin. Refreshing…");
       await refreshRoles();
       setHasSuperAdmin(true);
-    } catch (e: any) { toast.error(e.message ?? "Failed to claim"); } finally { setClaiming(false); }
+    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : String(e) ?? "Failed to claim"); } finally { setClaiming(false); }
   };
 
   const isSuper = roles.includes("super_admin");
@@ -102,7 +102,7 @@ export default function Settings() {
           </div>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Switch checked={showMessages} onCheckedChange={(v) => { setShowMessages(!!v); try { localStorage.setItem("showMessages", !!v ? "true" : "false"); } catch {} }} />
+              <Switch checked={showMessages} onCheckedChange={(v) => { setShowMessages(!!v); try { localStorage.setItem("showMessages", v ? "true" : "false"); } catch {} }} />
             </TooltipTrigger>
             <TooltipContent side="left">Toggle messages visibility</TooltipContent>
           </Tooltip>

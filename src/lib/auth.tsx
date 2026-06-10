@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       supabase.from("user_roles").select("role").eq("user_id", uid),
       supabase.from("clients").select("id").eq("owner_user_id", uid).limit(1),
     ]);
-    setRoles((roleRows ?? []).map((r: any) => r.role));
+    setRoles((roleRows ?? []).map((r: { role?: string }) => (r.role as Role) ?? "client_user"));
     setClientId(clientRows?.[0]?.id ?? null);
   };
 

@@ -64,8 +64,8 @@ export default function Auth() {
         if (error) throw error;
         navigate("/dashboard", { replace: true });
       }
-    } catch (err: any) {
-      toast.error(err.message ?? "Authentication failed");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : String(err ?? "Authentication failed"));
     } finally { setLoading(false); }
   };
 
@@ -104,7 +104,7 @@ export default function Auth() {
             </button>
           </form>
         ) : (
-          <Tabs value={mode} onValueChange={(v) => setMode(v as any)}>
+          <Tabs value={mode} onValueChange={(v) => setMode(v as "signin" | "signup") }>
             <TabsList className="grid grid-cols-2 w-full">
               <TabsTrigger value="signin">Sign in</TabsTrigger>
               <TabsTrigger value="signup">Sign up</TabsTrigger>

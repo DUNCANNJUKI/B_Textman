@@ -18,9 +18,9 @@ const STATUSES = ["queued", "processing", "sent", "delivered", "failed", "cancel
 export default function Messages() {
   const { clientId, roles } = useAuth();
   const admin = isAdmin(roles);
-  const [items, setItems] = useState<any[]>([]);
-  const [devices, setDevices] = useState<any[]>([]);
-  const [clients, setClients] = useState<any[]>([]);
+  const [items, setItems] = useState<Record<string, unknown>[]>([]);
+  const [devices, setDevices] = useState<Record<string, unknown>[]>([]);
+  const [clients, setClients] = useState<Record<string, unknown>[]>([]);
   const [status, setStatus] = useState<string>("all");
   const [deviceId, setDeviceId] = useState<string>("all");
   const [clientFilter, setClientFilter] = useState<string>("all");
@@ -35,8 +35,17 @@ export default function Messages() {
   const [totalCount, setTotalCount] = useState(0);
   const [showMessages, setShowMessages] = useState<boolean>(false);
 
-  const applyMessageFilters = (q: any) => {
-    let query = q;
+  type QueryLike = {
+    eq?: (col: string, v: unknown) => QueryLike;
+    gte?: (col: string, v: unknown) => QueryLike;
+    lte?: (col: string, v: unknown) => QueryLike;
+    or?: (expr: string) => QueryLike;
+    order?: (col: string, opts?: Record<string, unknown>) => QueryLike;
+    range?: (from: number, to: number) => Promise<{ data: Record<string, unknown>[] | null; count?: number }>;
+  };
+
+  const applyMessageFilters = (q: QueryLike) => {
+    let query: QueryLike = q;
     if (!admin && clientId) query = query.eq("client_id", clientId);
     if (admin && clientFilter !== "all") query = query.eq("client_id", clientFilter);
     if (status !== "all") query = query.eq("status", status);
@@ -50,8 +59,8 @@ export default function Messages() {
   const load = async () => {
     const fromIndex = page * pageSize;
     const toIndex = fromIndex + pageSize - 1;
-    let q: any = applyMessageFilters(supabase.from("messages").select("*", { count: "exact" }));
-    const { data, count } = await q.order("created_at", { ascending: false }).range(fromIndex, toIndex);
+    const q: QueryLike = applyMessageFilters(supabase.from("messages").select("*", { count: "exact" }));
+    const { data, count } = await (q.order ? q.order("created_at", { ascending: false }).range(fromIndex, toIndex) : Promise.resolve({ data: [] as Record<string, unknown>[], count: 0 }));
     setItems(data ?? []);
     setTotalCount(count ?? 0);
   };
@@ -60,7 +69,7 @@ export default function Messages() {
     const devQ = admin ? supabase.from("devices").select("id,device_name") : supabase.from("devices").select("id,device_name").eq("client_id", clientId ?? "");
     const [{ data: d }, { data: c }] = await Promise.all([
       devQ,
-      admin ? supabase.from("clients").select("id,name") : Promise.resolve({ data: [] as any[] }),
+      admin ? supabase.from("clients").select("id,name") : Promise.resolve({ data: [] as Record<string, unknown>[] }),
     ]);
     setDevices(d ?? []);
     setClients(c ?? []);
@@ -120,13 +129,13 @@ export default function Messages() {
 
   const exportCsv = () => {
     const cols = ["id", "client_id", "device_id", "recipient", "message", "encoding", "parts_count", "status", "priority", "retry_count", "error_message", "created_at", "processing_at", "sent_at", "delivered_at", "failed_at"];
-    const esc = (v: any) => {
+    const esc = (v: unknown) => {
       if (v == null) return "";
       const s = typeof v === "string" ? v : JSON.stringify(v);
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
     const lines = [cols.join(",")];
-    items.forEach((m) => lines.push(cols.map((c) => esc(m[c])).join(",")));
+    items.forEach((m) => lines.push(cols.map((c) => esc((m as Record<string, unknown>)[c])).join(",")));
     downloadBlob(lines.join("\n"), "csv", "text/csv");
   };
 

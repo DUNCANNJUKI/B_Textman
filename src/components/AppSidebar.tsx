@@ -1,3 +1,4 @@
+import type { ElementType } from "react";
 import {
   LayoutDashboard, Smartphone, MessageSquare, Send, KeyRound,
   Users, BarChart3, ScrollText, FileCode2, Settings as SettingsIcon,
@@ -39,7 +40,7 @@ export function AppSidebar() {
 
   const active = (p: string) => pathname === p || pathname.startsWith(p + "/");
 
-  const renderItem = (item: { title: string; url: string; icon: any }) => (
+  const renderItem = (item: { title: string; url: string; icon: ElementType }) => (
     <SidebarMenuItem key={item.title}>
       <SidebarMenuButton asChild isActive={active(item.url)}>
         <NavLink to={item.url} className="flex items-center gap-3">

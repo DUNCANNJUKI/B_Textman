@@ -221,103 +221,7 @@ export default function AndroidClient() {
     }
   };
 
-  const KOTLIN_SAMPLE = `// Persistent registration + foreground service
-object BTextman {
-  const val URL = "${SUPABASE_URL}"
-  const val ANON = "${ANON_KEY}"
-}
-
-class GatewayService : Service() {
-  private val prefs by lazy { getSharedPreferences("btextman", MODE_PRIVATE) }
-  private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-
-  override fun onCreate() {
-    super.onCreate()
-    startForeground(1, notification())
-    val token = prefs.getString("device_token", null) ?: return stopSelf()
-    startHeartbeat(token)
-    listenForMessages(token)
-  }
-
-  /** 1) REGISTER (run from a setup screen with the API key) */
-  suspend fun register(apiKey: String) {
-    val res = HttpClient(Android).post("${ENDPOINTS.register}") {
-      header("Authorization", "Bearer \$apiKey")
-      contentType(ContentType.Application.Json)
-      setBody("""{"device_name":"${'$'}{Build.MODEL}","phone_number":"\${phone()}","sim_slot":1,"android_version":"${'$'}{Build.VERSION.RELEASE}","app_version":"1.0"}""")
-    }
-    val token = JSONObject(res.bodyAsText()).getString("device_token")
-    prefs.edit().putString("device_token", token).apply()   // <-- persisted
-  }
-
-  /** 2) HEARTBEAT every 30 seconds. Also flushes any locally-buffered delivered ids
-   *  so the server can mark them sent even if /device-status-update calls were dropped. */
-  private val deliveredBuffer = java.util.Collections.synchronizedSet(mutableSetOf<String>())
-  private fun startHeartbeat(token: String) = scope.launch {
-    while (isActive) {
-      // 1) replay any /message-status POSTs that previously failed
-      flushPendingStatuses(token)
-      // 2) then send the heartbeat with any delivered ids the server hasn't acked yet
-      runCatching {
-        val ids = synchronized(deliveredBuffer) { deliveredBuffer.toList().also { deliveredBuffer.clear() } }
-        val idsJson = ids.joinToString(",") { "\"${'$'}it\"" }
-        HttpClient(Android).post("${ENDPOINTS.heartbeat}") {
-          header("Authorization", "Bearer \$token")
-          contentType(ContentType.Application.Json)
-          setBody("""{"battery_level":\${battery()},"signal_strength":\${signal()},"internet_type":"\${netType()}","app_version":"1.0","delivered_ids":[\$idsJson]}""")
-        }
-      }.onFailure {
-        // heartbeat itself failed — put delivered ids back so they ride the next heartbeat
-        // (no-op here; deliveredBuffer items would already be lost — for stricter behaviour
-        //  copy 'ids' back into deliveredBuffer inside the catch.)
-      }
-      delay(30_000)
-    }
-  }
-
-  /** 3) REALTIME — listen for new messages and send via SmsManager with PendingIntents */
-  private fun listenForMessages(token: String) = scope.launch {
-    val supabase = createSupabaseClient(BTextman.URL, BTextman.ANON) { install(Realtime); install(Postgrest) }
-    val channel = supabase.realtime.channel("device:\$token")
-    channel.postgresChangeFlow<PostgresAction.Insert>(schema = "public") { table = "messages" }
-      .onEach { change ->
-        val row = change.record
-        sendSms(token, row["id"].toString(), row["recipient"].toString(), row["message"].toString())
-      }.launchIn(this)
-    channel.subscribe()
-  }
-
-  /** Sends one SMS and wires sent/delivered PendingIntents to /message-status. */
-  private fun sendSms(token: String, id: String, to: String, text: String) {
-    val sentAction = "btextman.SMS_SENT.\$id"
-    val delivAction = "btextman.SMS_DELIVERED.\$id"
-    val sentPI = PendingIntent.getBroadcast(this, 0, Intent(sentAction).setPackage(packageName), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-    val delivPI = PendingIntent.getBroadcast(this, 0, Intent(delivAction).setPackage(packageName), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-
-    registerReceiver(object : BroadcastReceiver() {
-      override fun onReceive(c: Context, i: Intent) {
-        unregisterReceiver(this)
-        if (resultCode == Activity.RESULT_OK) {
-          scope.launch { reportStatus(token, id, "sent") }
-          deliveredBuffer.add(id)               // fallback via next heartbeat
-        } else {
-          scope.launch { reportStatus(token, id, "failed", "sent resultCode=\$resultCode") }
-        }
-      }
-    }, IntentFilter(sentAction), Context.RECEIVER_NOT_EXPORTED)
-
-    registerReceiver(object : BroadcastReceiver() {
-      override fun onReceive(c: Context, i: Intent) {
-        unregisterReceiver(this)
-        if (resultCode == Activity.RESULT_OK) scope.launch { reportStatus(token, id, "delivered") }
-      }
-    }, IntentFilter(delivAction), Context.RECEIVER_NOT_EXPORTED)
-
-    try {
-      val sms = SmsManager.getDefault()
-      val parts = sms.divideMessage(text)
-      if (parts.size > 1) {
-        sms.sendMultipartTextMessage(to, null, parts,
+  
           ArrayList(List(parts.size) { sentPI }),
           ArrayList(List(parts.size) { delivPI }))
       } else {
@@ -660,60 +564,10 @@ class GatewayService : Service() {
         )}
       </Card>
 
-      {/* Prompt to give an app generator so it syncs properly with the gateway */}
-      <Card className="p-5 space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold flex items-center gap-2"><Smartphone className="h-4 w-4 text-primary" />App-generator sync prompt</h2>
-          <Button size="sm" variant="outline" onClick={() => copy(APP_GENERATOR_PROMPT)}><Copy className="h-3 w-3 mr-1" />Copy prompt</Button>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Paste this into your Android app generator (Cursor, Claude, ChatGPT, etc.) to make the client fetch queued messages
-          and report delivery state to this gateway correctly.
-        </p>
-        <pre className="text-xs bg-muted rounded-md p-4 overflow-auto max-h-[420px] whitespace-pre-wrap"><code>{APP_GENERATOR_PROMPT}</code></pre>
-      </Card>
-
-      {/* Reference Kotlin implementation always visible */}
-      <Card className="p-5 space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold">Kotlin reference implementation</h2>
-          <Button size="sm" variant="outline" onClick={() => copy(KOTLIN_SAMPLE)}><Copy className="h-3 w-3 mr-1" />Copy</Button>
-        </div>
-        <pre className="text-xs bg-muted rounded-md p-4 overflow-auto max-h-[480px]"><code>{KOTLIN_SAMPLE}</code></pre>
-      </Card>
+      {/* App-generator sync prompt and Kotlin reference removed as requested */}
     </div>
   );
 }
 
-const APP_GENERATOR_PROMPT = `Modify the Android SMS-gateway client so it fetches data from and syncs reliably with the B-SPOT gateway.
-
-Endpoints (Supabase edge functions, base = ${"https://rtgcrclgmvcmrjpvtpwm.supabase.co"}/functions/v1):
-  POST /device-heartbeat        — auth: Bearer <device_token>; body: { battery_level, signal_strength, internet_type, ip_address, app_version, delivered_ids: string[] }
-                                  → returns { pending_sms: [{ id, phone_number, content, sim_slot }] }
-  POST /device-status-update    — auth: Bearer <device_token>; body: { message_id, status: "processing"|"sent"|"delivered"|"failed", error_message? }
-
-Realtime stream (preferred, replaces polling when available):
-  WSS ${"https://rtgcrclgmvcmrjpvtpwm.supabase.co".replace("https://", "wss://")}/realtime/v1/websocket?apikey=<SUPABASE_ANON_KEY>&vsn=1.0.0
-  Subscribe topic: "realtime:device:<device_token>"  (Supabase broadcast channel — server pushes { event: "messages.pending", payload: { messages: [...] } } the moment new SMS are queued).
-  Fallback rule: if the socket fails to OPEN within 10 s, drops, or returns CHANNEL_ERROR/TIMED_OUT, switch to heartbeat polling at 20–30 s intervals. Auto-retry the socket every 60 s with exponential backoff; once SUBSCRIBED, throttle polling back down.
-
-Required behavior:
-1. Foreground service runs forever; WorkManager periodic worker every 1 min as a backup wake-up.
-2. Heartbeat every 20–30 s (or every 60 s when realtime socket is SUBSCRIBED). Always include delivered_ids[] for any messages that succeeded but whose /device-status-update POST has not yet been acknowledged (the server treats this list as authoritative).
-3. For each message received (via realtime push OR heartbeat pending_sms):
-   a. Immediately POST /device-status-update status=processing.
-   b. Send via SmsManager.sendMultipartTextMessage with two PendingIntent arrays:
-      - SMS_SENT.<id>      → on success: POST status=sent; on failure: POST status=failed with error_message = result-code name (GENERIC_FAILURE, NO_SERVICE, NULL_PDU, RADIO_OFF, etc.).
-      - SMS_DELIVERED.<id> → POST status=delivered.
-   c. If any POST fails (network/5xx), persist {id,status,error_message} to SharedPreferences "pending_status" and replay it before the next heartbeat; on 2xx, remove it.
-4. Retry/replay loop must be idempotent — server accepts repeated terminal status updates without side effects.
-5. De-dupe message IDs across realtime + heartbeat sources so the same SMS is never sent twice (LRU cache of last 500 IDs).
-6. Permissions: SEND_SMS, READ_PHONE_STATE, RECEIVE_BOOT_COMPLETED, FOREGROUND_SERVICE, POST_NOTIFICATIONS, INTERNET, ACCESS_NETWORK_STATE. Request runtime SMS permission with rationale.
-7. Battery: addToBatteryOptimizationWhitelist via ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS; show a card in the UI if not whitelisted.
-8. Network: use OkHttp with 15 s connect / 30 s read timeout, exponential backoff (1s,2s,4s,8s capped 30s) on 5xx and IOException.
-9. Logging: ring-buffer last 200 events (socket_open, socket_error, heartbeat, picked_up, sent, delivered, failed, retry) visible in-app for debugging. Surface a "Realtime / Polling (fallback)" indicator in the UI.
-10. Device token is stored in EncryptedSharedPreferences; never log it.
-11. On every successful sendTextMessage, increment a local counter and surface "sent today / failed today" in the app UI for parity with the gateway dashboard.
-
-Acceptance test: send an SMS from the gateway dashboard to the device's number → within 5 s (realtime) or 30 s (polling fallback) the message row flips queued → processing → sent → delivered, with no rows getting stuck in "processing" longer than 90 seconds. Killing wifi mid-send must replay terminal statuses on reconnect with no duplicates.`;
+// App generator prompt removed per request
 

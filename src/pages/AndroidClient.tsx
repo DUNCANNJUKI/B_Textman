@@ -31,68 +31,7 @@ const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
     const { data } = await supabase
       .from("messages")
       .select("id,recipient,status,created_at,updated_at,sent_at,delivered_at,failed_at,device_id,error_message")
-      .eq("client_id", clientId)
-      .order("created_at", { ascending: false })
-      .limit(20);
-    if (data) mergeRows(data);
-    setLoadingMessages(false);
-  }, [clientId, mergeRows]);
 
-  // ---- Realtime stream w/ exponential backoff reconnect ----
-  // Backoff: 2,4,8,16,30,30… seconds. Each failed subscribe bumps reconnectAttempt,
-  // which schedules the next attempt — never spams the gateway with rapid retries.
-  useEffect(() => {
-    if (!clientId) return;
-    loadRecentMessages();
-    let cancelled = false;
-    let openTimer: number | undefined;
-    setRealtimeStatus((s) => (s === "live" ? "connecting" : s));
-
-    const channel = supabase
-      .channel(`android-client-msgs-${clientId}-${reconnectAttempt}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "messages", filter: `client_id=eq.${clientId}` },
-        (payload: any) => {
-          const row = (payload.new ?? payload.old);
-          if (row) mergeRows([row]);
-        },
-      )
-      .subscribe((status) => {
-        if (cancelled) return;
-        if (status === "SUBSCRIBED") {
-          setRealtimeStatus("live");
-          if (openTimer) { clearTimeout(openTimer); openTimer = undefined; }
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-          setRealtimeStatus("fallback");
-          // schedule next reconnect with exponential backoff (cap 30s)
-          const delay = Math.min(30_000, 2_000 * Math.pow(2, reconnectAttempt));
-          window.setTimeout(() => { if (!cancelled) setReconnectAttempt((n) => n + 1); }, delay);
-        }
-      });
-
-    // 10s open guard — if we never see SUBSCRIBED, treat as fallback and schedule retry
-    openTimer = window.setTimeout(() => {
-      setRealtimeStatus((s) => {
-        if (s === "live") return s;
-        const delay = Math.min(30_000, 2_000 * Math.pow(2, reconnectAttempt));
-        window.setTimeout(() => { if (!cancelled) setReconnectAttempt((n) => n + 1); }, delay);
-        return "fallback";
-      });
-    }, 10_000);
-
-    return () => {
-      cancelled = true;
-      if (openTimer) clearTimeout(openTimer);
-      supabase.removeChannel(channel);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientId, reconnectAttempt]);
-
-  // ---- Polling fallback ----
-  // Only runs when realtime is NOT live and autoPoll is on. Auto-pauses on hidden tab.
-  useEffect(() => {
-    if (!autoPoll || !clientId || realtimeStatus === "live") return;
     let timer: number | undefined;
     const tick = () => { if (!document.hidden) loadRecentMessages(); };
     const start = () => { timer = window.setInterval(tick, Math.max(2, pollInterval) * 1000); };
